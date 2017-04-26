@@ -1,0 +1,105 @@
+<?php
+
+
+/**
+ * Implements hook_field_widget_info().
+ */
+function attendancetracker_field_widget_info() {
+  return array(
+    'trainer_select' => array(
+      'label' => t('Trainer'),
+      'field types' => array('list_text'),
+      'behaviors' => array('multiple values' => FIELD_BEHAVIOR_DEFAULT)
+    ),
+  );
+}
+
+/**
+ * Implements hook_field_widget_form().
+ */
+function attendancetracker_field_widget_form(&$form, &$form_state, $field, $instance, $langcode, $items, $delta, $element) {
+    
+  $value_key = key($field['columns']);
+  $options = array();
+  switch ($instance['widget']['type']) {
+    case 'trainer_select':
+      $options = attendancetracker_get_trainer_list();
+      break;
+  }
+  $element += array(
+    '#value_key' => $value_key,
+    '#type' => 'select',
+    '#element_validate' => array('attendancetracker_field_widget_validate'),
+    '#options' => $options,
+//    '#multiple'=> true,  
+    '#default_value' => empty($items) ? 1 : $items[0]['value'],
+    '#attributes' => array( 'multiple'=>'multiple'),
+
+  );
+  
+  return $element;
+}
+
+/**
+ * Implements hook_field_widget_validate().
+ */
+function attendancetracker_field_widget_validate($element, &$form_state) {
+  $value = array($element['#value_key'] => $element['#value']);
+  form_set_value($element, $value, $form_state);
+}
+
+/**
+ * Implements hook_field_formatter_info().
+ */
+function attendancetracker_field_formatter_info() {
+  return array(
+    'trainer_select' => array(
+      'label' => t('Trainer'),
+      'field types' => array('list_text'),
+    ),
+  );
+}
+
+function attendancetracker_field_formatter_view($entity_type, $entity, $field, $instance, $langcode, $items, $display) {
+  $element = array();
+  switch ($display['type']) {
+    case 'trainer_select':
+      foreach ($items as $delta => $item) {
+        $element[$delta] = array(
+          '#type' => 'markup',
+          '#markup' => attendancetracker_get_trainer_list($item['value']),
+        );
+      }
+      break;
+  }
+  return $element;
+}
+
+/**
+ * get a list of trainers
+ */
+function attendancetracker_get_trainer_list($val = '') {
+  static $options = array();
+  if (empty($options)) {
+    $role = user_role_load_by_name('Trainer');
+    $uids = db_select('users_roles', 'ur')
+        ->fields('ur', array('uid'))
+        ->condition('ur.rid', $role->rid, '=')
+        ->execute()
+        ->fetchCol();
+    $users = user_load_multiple($uids);
+//    dpm($users);
+    $options = array();
+//    $options[0]= '-Select-';
+    foreach ($users as $row) {
+//        dpm($row->uid,$row->name);
+      $options[$row->uid] = check_plain("$row->name");
+    }
+  }
+  if (is_numeric($val)) {
+    return $options[$val];
+  }
+//  dpm($options);
+  return $options;
+}
+
